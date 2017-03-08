@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 )
 
 //Server
@@ -24,29 +25,28 @@ func main() {
 	fmt.Println("Listening in port 8080")
 	for {
 		conn, err := l.AcceptTCP()
-		if err != nil {
-			log.Fatal(err)
-		}
+		checkError(err)
 		request := make([]byte, 128)
 		defer conn.Close()
 
 		fmt.Println("Connection with", conn.RemoteAddr(), "stablished")
 
 		readlen, err := conn.Read(request)
-		if err != nil {
-			log.Fatal(err)
-		}
-
+		checkError(err)
+		fmt.Println("RECIBÍ", string(request[:readlen]))
 		switch string(request[:readlen]) {
 		case "start":
 			fmt.Println("STARTED")
 			conn.Write([]byte("setlevel"))
 		case "level1":
+			fmt.Println("level1")
 			startGame(1, conn)
 		case "level2":
-			startGame()
+			fmt.Println("level2")
+			startGame(2, conn)
 		case "level3":
-			startGame()
+			fmt.Println("level3")
+			startGame(3, conn)
 		default:
 			fmt.Println("Invalid Message")
 		}
@@ -56,7 +56,7 @@ func main() {
 }
 
 func startGame(lvl int, conn *net.TCPConn) {
-	var word string
+	var word, clue string
 	switch lvl {
 	case 1:
 		word = "perro"
@@ -65,6 +65,20 @@ func startGame(lvl int, conn *net.TCPConn) {
 	case 3:
 		word = "peritonitis"
 	default:
-		word = perro
+		word = "perro"
+	}
+
+	for i := 0; i < len(word); i++ {
+		clue = clue + "_"
+	}
+
+	_, err := conn.Write([]byte(clue))
+	checkError(err)
+}
+
+func checkError(err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
+		os.Exit(1)
 	}
 }
