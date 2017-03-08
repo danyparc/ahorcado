@@ -5,48 +5,74 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
-func main() {
+var tcpAddr *net.TCPAddr
+var clue string
 
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", ":8080")
+func main() {
+	var err error
+	tcpAddr, err = net.ResolveTCPAddr("tcp4", ":8080")
 	checkError(err)
 	conn, err := net.DialTCP("tcp4", nil, tcpAddr)
 	checkError(err)
-	defer conn.Close()
 
 	_, err = conn.Write([]byte("start"))
 	checkError(err)
-	//TODO: quitar espacios o declarar byte dinámico
 	reply := make([]byte, 128)
 	rl, err := conn.Read(reply)
 	checkError(err)
+	conn.Close()
 
 	fmt.Println("RESPONSE:", string(reply[:rl]), "LEN:", len(reply[:rl]))
 
-	handleResp(string(reply[:rl]), conn)
-
-	reply = make([]byte, 20)
-	_, err = conn.Read(reply)
-	checkError(err)
-	fmt.Println("RESPONSE:", string(reply), "LEN:", len(reply))
+	handleResp(string(reply[:rl]))
 
 }
 
-func handleResp(resp string, conn *net.TCPConn) {
+func sentTo(address *net.TCPAddr, content string) string {
+	conn, err := net.DialTCP("tcp4", nil, address)
+	checkError(err)
+	_, err = conn.Write([]byte(content))
+	checkError(err)
+	reply := make([]byte, 128)
+	rl, err := conn.Read(reply)
+	checkError(err)
+	conn.CloseRead()
+	conn.Close()
+	return string(reply[:rl])
+}
+
+func handleResp(resp string) {
+
 	if resp == "setlevel" {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Elige un nivel 1 | 2 | 3 : ")
 		text, err := reader.ReadString('\n')
 		checkError(err)
-		fmt.Println(text[:1], len(text[:1]))
-		conn.Write([]byte("level" + text[:1]))
+		reply := sentTo(tcpAddr, "level"+text[:1])
+		fmt.Println("\nLa pista es: ", reply)
+		clue = reply
+	}
+	if resp == "GANASTE" {
+		fmt.Println("HAS GANADO")
+	}
+	runGame()
+
+}
+func runGame() {
+	for strings.Contains(clue, "_") {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("\nEscribe una letra: ")
+		letr, err := reader.ReadString('\n')
 		checkError(err)
-		fmt.Println("enviado")
+		reply := sentTo(tcpAddr, "letr:"+letr[:1])
+		fmt.Println(reply)
+
 	}
 
 }
-
 func checkError(err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
